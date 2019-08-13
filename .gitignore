@@ -1,0 +1,6 @@
+*.json
+*.bak
+*.tmp
+__pycache__/
+login
+preview.html
