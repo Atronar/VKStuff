@@ -1,0 +1,6 @@
+*.json
+*.bak
+*.ui
+*.tmp
+__pycache__/
+login
