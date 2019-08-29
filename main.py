@@ -6,6 +6,7 @@ from PyQt5 import QtWidgets;
 import io;
 import os;
 import time;
+import webbrowser;
 
 def in_any_attach(searchedText,listAttachs):
    for attach in listAttachs:
