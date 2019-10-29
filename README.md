@@ -7,3 +7,4 @@ VKSearchPostponed
 Для работы необходимо:
 * [python 3.6](https://www.python.org/downloads/)
 * [vk_api](https://github.com/python273/vk_api/)
+* [cv2](https://github.com/skvark/opencv-python)
