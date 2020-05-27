@@ -26,7 +26,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.setupUi(self) 
 
         # Поиск в отложке
-        self.vkspp_pushButton.clicked.connect(self.vkspp_search)
+        self.vkspp_pushButton.clicked.connect(self.vkspp_new_search)
         self.vkspp_backward_pushButton.clicked.connect(self.vkspp_backward)
         self.vkspp_forward_pushButton.clicked.connect(self.vkspp_forward)
         self.vkspp_publicLineEdit.textChanged.connect(self.vkspp_enableButton)
@@ -95,7 +95,6 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        else:
           params['domain'] = public_raw.rsplit('/',1)[-1].split('?',1)[0].split('#',1)[0]
 
-       #self.respListWidget.clear();
        self.vkspp_respTableWidget.setRowCount(0)
        try: 
           resp = self.vk.method('wall.get', params);
@@ -113,7 +112,6 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           items = resp['items'];
           if items:
              self.vkspp_respGroupBox.setEnabled(True);
-             #self.respListWidget.setEnabled(True);
              self.vkspp_respTableWidget.setEnabled(True);
              if search_desc and search_attach:
                 items = [item for item in items if searched in item['text'].lower() or ('attachments' in item and in_any_attach(searched,item['attachments']))];
@@ -126,7 +124,6 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                             'num_attach': f"{len(post['attachments']) if 'attachments' in post else 0}",
                             'author': f"{post['signer_id'] if 'signer_id' in post else 0}"
                            } for post in items]
-             #self.respListWidget.addItems(posts_list);
              for column,post in enumerate(posts_list):
                 rowPosition = self.vkspp_respTableWidget.rowCount()
                 self.vkspp_respTableWidget.insertRow(rowPosition)
@@ -137,25 +134,28 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
              self.vkspp_respTableWidget.resizeColumnsToContents()
           else:
              self.vkspp_respGroupBox.setEnabled(False);
-             #self.respListWidget.setEnabled(False);
              self.vkspp_respTableWidget.setEnabled(False);
        except vk_api.exceptions.ApiError as e:
           if 'Access denied' in f"{e}":
-             self.statusbar.showMessage('Нет доступа к сообществу',10000)
+             self.statusBar.showMessage('Нет доступа к сообществу',10000)
              print('\a',end='\r')
+             self.vkspp_forward_pushButton.setEnabled(False)
+             self.vkspp_backward_pushButton.setEnabled(False)
           else:
              raise
+
+    def vkspp_new_search(self):
+       self.vkspp_page_label.setText('1')
+       self.vkspp_search()
 
     def vkspp_backward(self):
        cur_page = int(self.vkspp_page_label.text())
        self.vkspp_page_label.setText(f'{cur_page-1}')
-       #self.vkspp_forward_pushButton.setEnabled(True)
        self.vkspp_search()
 
     def vkspp_forward(self):
        cur_page = int(self.vkspp_page_label.text())
        self.vkspp_page_label.setText(f'{cur_page+1}')
-       #self.vkspp_backward_pushButton.setEnabled(True)
        self.vkspp_search()
  
     def vkspp_enableButton(self):
@@ -375,7 +375,6 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
 #
     def info_auth(self):
        login = self.info_1_auth_lineEdit.text();
-
        try:
           self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login,captcha_handler=vkAuth.captcha_handler);
           resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
@@ -388,7 +387,8 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           scene.addPixmap(pixmap)
           self.info_ava.setScene(scene)
        except vk_api.exceptions.AuthError:
-          self.statusBar.showMessage("Ошибка авторизации, проверьте правильность логина и пароля",2000)
+          self.statusBar.showMessage("Ошибка авторизации, проверьте правильность логина и пароля",10000)
+          print('\a',end='\r')
 #
 #########
 
