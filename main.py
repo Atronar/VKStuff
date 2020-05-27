@@ -2,7 +2,7 @@ import vk_api;
 import vkAuth;
 import sys
 import design, preview
-from PyQt5 import QtWidgets, QtCore;
+from PyQt5 import QtWidgets, QtCore, QtGui;
 import io;
 import os;
 import time;
@@ -38,6 +38,9 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.vkps_getPostButton.clicked.connect(self.vkps_get_post)
         self.vkps_downloadButton.clicked.connect(self.vkps_download)
 
+        # Инфо
+        self.info_1_auth_pushButton.clicked.connect(self.info_auth)
+
         # Авторизация
         try:
            with open('login') as f:
@@ -52,6 +55,15 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
            os.remove('login')
            input("Ошибка авторизации, проверьте правильность логина и пароля\nНажмите [Enter] для выхода")
            raise
+        resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
+        self.info_1_id.setText(f"{self.myid}");
+        self.info_1_name.setText(f"{resp['first_name']} {resp['last_name']}");
+        resp['photo_100']
+        scene = QtWidgets.QGraphicsScene()
+        pixmap = QtGui.QPixmap()
+        pixmap.loadFromData(self.vk.http.get(resp['photo_100']).content)
+        scene.addPixmap(pixmap)
+        self.info_ava.setScene(scene)
 
 ######### Функции поиска в отложке
 #
@@ -86,7 +98,9 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 items = [item for item in items if 'attachments' in item and in_any_attach(searched,item['attachments'])];
              posts_list = [{'link':f"https://vk.com/wall{post['owner_id']}_{post['id']}",
                             'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date'])),
-                            'num_attach': f"{len(post['attachments'])}"} for post in items]
+                            'num_attach': f"{len(post['attachments'])}",
+                            'author': f"{post['signer_id'] if 'signer_id' in post else 0}"
+                           } for post in items]
              #self.respListWidget.addItems(posts_list);
              for column,post in enumerate(posts_list):
                 rowPosition = self.vkspp_respTableWidget.rowCount()
@@ -94,6 +108,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 self.vkspp_respTableWidget.setItem(column, 0, QtWidgets.QTableWidgetItem(post['link']))
                 self.vkspp_respTableWidget.setItem(column, 1, QtWidgets.QTableWidgetItem(post['date']))
                 self.vkspp_respTableWidget.setItem(column, 2, QtWidgets.QTableWidgetItem(post['num_attach']))
+                self.vkspp_respTableWidget.setItem(column, 3, QtWidgets.QTableWidgetItem(post['author']))
              self.vkspp_respTableWidget.resizeColumnsToContents()
           else:
              self.vkspp_respGroupBox.setEnabled(False);
@@ -191,7 +206,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
               self.vked_copyright.setText('')
 
         else:
-           self.vked_statusBar.showMessage('Неправильная ссылка на пост!')
+           self.vked_statusBar.showMessage('Неправильная ссылка на пост!',2000)
            print('\a',end='\r')
 
     def vked_addAttachment(self):
@@ -305,11 +320,32 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                        urlretrieve(attachment['photo']['sizes'][-1]['url'],os.path.join(os.path.normpath(self.vkps_fileEdit.text()),f'{num+1}.jpg'));
                        self.vkps_progressBar.setValue(num+1)
            self.vkps_downloadButton.setEnabled(True)
-           self.statusBar.showMessage('Готово!')
+           self.statusBar.showMessage('Готово!',2000)
         except:
-           self.statusBar.showMessage('Не указана папка')
+           self.statusBar.showMessage('Не указана папка',2000)
            self.vkps_downloadButton.setEnabled(True)
            print('\a',end='\r')
+#
+#########
+
+######### Функции страницы инфо
+#
+    def info_auth(self):
+       login = self.info_1_auth_lineEdit.text();
+
+       try:
+          self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login,captcha_handler=vkAuth.captcha_handler);
+          resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
+          self.info_1_id.setText(f"{self.myid}");
+          self.info_1_name.setText(f"{resp['first_name']} {resp['last_name']}");
+          resp['photo_100']
+          scene = QtWidgets.QGraphicsScene()
+          pixmap = QtGui.QPixmap()
+          pixmap.loadFromData(self.vk.http.get(resp['photo_100']).content)
+          scene.addPixmap(pixmap)
+          self.info_ava.setScene(scene)
+       except vk_api.exceptions.AuthError:
+          self.statusBar.showMessage("Ошибка авторизации, проверьте правильность логина и пароля",2000)
 #
 #########
 
