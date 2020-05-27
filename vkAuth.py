@@ -1,4 +1,4 @@
-﻿# v. 200325
+﻿# v. 200425
 import vk_api;
 from getpass import getpass;
 import json;
@@ -8,13 +8,14 @@ import vk_api.upload;
 import cv2;
 import requests;
 import numpy as np;
+import sys
 
 def beep():
    try:
       import winsound
       winsound.MessageBeep()
    except:
-      pass
+      print('\a')
 
 # Двухфакторная авторизация
 def auth_handler():
@@ -25,7 +26,7 @@ def auth_handler():
    return key, remember_device
 
 # Обработка капчи
-def captcha_handler(captcha, key=None, show_captcha=False, go_flag=None):
+def captcha_handler(captcha, key=None, show_captcha=False, go_flag=None, stdin=None):
    """ При возникновении капчи вызывается эта функция и ей передается объект
        капчи. Через метод get_url можно получить ссылку на изображение.
        Через метод try_again можно попытаться отправить запрос с кодом капчи
@@ -36,13 +37,16 @@ def captcha_handler(captcha, key=None, show_captcha=False, go_flag=None):
    #   try:
          captcha_url = captcha.get_url();
          if show_captcha:
-            show_img(requests.get(captcha_url).content);
-         back_flag = go_flag.value
-         if go_flag is not None:
-            go_flag.value = True
+            show_img(requests.get(captcha_url).content, captcha_url.rsplit("sid=",1)[-1].split("&",1)[0]);
+         if hasattr(go_flag, "value"):
+            back_flag = go_flag.value
          beep()
+         if stdin:
+            print(stdin)
+            sys.stdin = stdin;
          key = input(f"Введите капчу {captcha_url}: ");
-         go_flag.value = back_flag
+         if hasattr(go_flag, "value"):
+            go_flag.value = back_flag
          if show_captcha:
             cv2.destroyAllWindows();
    #   except EOFError:
@@ -154,32 +158,4 @@ def show_img(img_file,title=''):
 # В классе некоторые исправления
 class betterVkUpload(vk_api.upload.VkUpload):
     # Добавлен caption - описание фото
-    def photo_wall(self, photos, user_id=None, group_id=None, caption=None):
-        """ Загрузка изображений на стену пользователя или в группу
-
-        :param photos: путь к изображению(ям) или file-like объект(ы)
-        :type photos: str or list
-
-        :param user_id: идентификатор пользователя
-        :param group_id: идентификатор сообщества (если загрузка идет в группу)
-        """
-
-        values = {}
-
-        if user_id:
-            values['user_id'] = user_id
-        elif group_id:
-            values['group_id'] = group_id
-
-        if caption:
-            values['caption'] = caption
-
-        response = self.vk.method('photos.getWallUploadServer', values)
-        url = response['upload_url']
-
-        with vk_api.upload.FilesOpener(photos) as photos_files:
-            response = self.vk.http.post(url, files=photos_files)
-
-        values.update(response.json())
-
-        return self.vk.method('photos.saveWallPhoto', values)
+    pass
