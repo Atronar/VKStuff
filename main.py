@@ -26,6 +26,8 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.vkspp_pushButton.clicked.connect(self.vkspp_search)
         self.vkspp_publicLineEdit.textChanged.connect(self.vkspp_enableButton)
         self.vkspp_respTableWidget.itemDoubleClicked.connect(self.vkspp_openLink)
+        self.vkspp_suggests_radioButton.clicked.connect(self.vkspp_recheck_filter)
+        self.vkspp_postponed_radioButton.clicked.connect(self.vkspp_recheck_filter)
 
         # Редактор постов
         self.vked_getPostButton.clicked.connect(self.vked_get_post)
@@ -72,9 +74,14 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        searched = self.vkspp_plainTextEdit.toPlainText().lower().strip()
        search_desc = self.vkspp_textdescCheckBox.isChecked()
        search_attach = self.vkspp_attachCheckBox.isChecked()
+
+       if self.vkspp_suggests_radioButton.isChecked():
+          search_filter = 'suggests';
+       else: # if self.vkspp_postponed_radioButton.isChecked():
+          search_filter = 'postponed';
  
        params = {'count':1000,
-                 'filter':'postponed',
+                 'filter':search_filter,
                  'extended':0}
  
        if public_raw.isdigit():
@@ -130,6 +137,12 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def vkspp_openLink(self,item):
        link = self.vkspp_respTableWidget.item(item.row(),0).text()
        webbrowser.open(link);
+
+    def vkspp_recheck_filter(self):
+       if self.vkspp_postponed_radioButton.isChecked():
+          self.vkspp_suggests_radioButton.setChecked(False);
+       elif self.vkspp_suggests_radioButton.isChecked():
+          self.vkspp_postponed_radioButton.setChecked(False);
 #
 #########
 

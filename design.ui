@@ -343,7 +343,7 @@
       </widget>
       <widget class="QWidget" name="tab_vksearchpostponed">
        <attribute name="title">
-        <string>Поиск в отложке</string>
+        <string>Поиск по стене</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
@@ -410,6 +410,23 @@
           </property>
           <property name="checked">
            <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="vkspp_postponed_radioButton">
+          <property name="text">
+           <string>Отложка</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="vkspp_suggests_radioButton">
+          <property name="text">
+           <string>Предложка</string>
           </property>
          </widget>
         </item>
