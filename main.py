@@ -6,9 +6,20 @@ from PyQt5 import QtWidgets, QtCore, QtGui;
 import io;
 import os;
 import time;
-import webbrowser;
 from urllib.request import urlretrieve;
 import math;
+
+import win32clipboard  # http://sourceforge.net/projects/pywin32/
+def copyClipboard(text):
+    win32clipboard.OpenClipboard()
+    win32clipboard.EmptyClipboard()
+    win32clipboard.SetClipboardText(text, win32clipboard.CF_UNICODETEXT)
+    win32clipboard.CloseClipboard()
+def pasteClipboard():
+    win32clipboard.OpenClipboard()
+    data = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+    win32clipboard.CloseClipboard()
+    return data
 
 MAX_VKSPP_SEARCH_COUNT = 100;
 
@@ -165,8 +176,8 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           self.vkspp_pushButton.setEnabled(False);
 
     def vkspp_openLink(self,item):
-       link = self.vkspp_respTableWidget.item(item.row(),0).text()
-       webbrowser.open(link);
+       link = self.vkspp_respTableWidget.item(item.row(),0).text();
+       copyClipboard(link);
 
     def vkspp_recheck_filter(self):
        if self.vkspp_postponed_radioButton.isChecked():
