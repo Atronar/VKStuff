@@ -8,6 +8,9 @@ import os;
 import time;
 import webbrowser;
 from urllib.request import urlretrieve;
+import math;
+
+MAX_VKSPP_SEARCH_COUNT = 100;
 
 def in_any_attach(searchedText,listAttachs):
    for attach in listAttachs:
@@ -24,6 +27,8 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         # Поиск в отложке
         self.vkspp_pushButton.clicked.connect(self.vkspp_search)
+        self.vkspp_backward_pushButton.clicked.connect(self.vkspp_backward)
+        self.vkspp_forward_pushButton.clicked.connect(self.vkspp_forward)
         self.vkspp_publicLineEdit.textChanged.connect(self.vkspp_enableButton)
         self.vkspp_respTableWidget.itemDoubleClicked.connect(self.vkspp_openLink)
         self.vkspp_suggests_radioButton.clicked.connect(self.vkspp_recheck_filter)
@@ -80,7 +85,8 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        else: # if self.vkspp_postponed_radioButton.isChecked():
           search_filter = 'postponed';
  
-       params = {'count':1000,
+       params = {'count':MAX_VKSPP_SEARCH_COUNT,
+                 'offset':(int(self.vkspp_page_label.text())-1)*MAX_VKSPP_SEARCH_COUNT,
                  'filter':search_filter,
                  'extended':0}
  
@@ -92,7 +98,19 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        #self.respListWidget.clear();
        self.vkspp_respTableWidget.setRowCount(0)
        try: 
-          items = self.vk.method('wall.get', params)['items'];
+          resp = self.vk.method('wall.get', params);
+
+          count_items = resp['count'];
+          if int(self.vkspp_page_label.text()) <= 1:
+             self.vkspp_backward_pushButton.setEnabled(False)
+          else:
+             self.vkspp_backward_pushButton.setEnabled(True)
+          if int(self.vkspp_page_label.text()) >= math.ceil(count_items/MAX_VKSPP_SEARCH_COUNT):
+             self.vkspp_forward_pushButton.setEnabled(False)
+          else:
+             self.vkspp_forward_pushButton.setEnabled(True)
+
+          items = resp['items'];
           if items:
              self.vkspp_respGroupBox.setEnabled(True);
              #self.respListWidget.setEnabled(True);
@@ -105,7 +123,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 items = [item for item in items if 'attachments' in item and in_any_attach(searched,item['attachments'])];
              posts_list = [{'link':f"https://vk.com/wall{post['owner_id']}_{post['id']}",
                             'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date'])),
-                            'num_attach': f"{len(post['attachments'])}",
+                            'num_attach': f"{len(post['attachments']) if 'attachments' in post else 0}",
                             'author': f"{post['signer_id'] if 'signer_id' in post else 0}"
                            } for post in items]
              #self.respListWidget.addItems(posts_list);
@@ -127,6 +145,18 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
              print('\a',end='\r')
           else:
              raise
+
+    def vkspp_backward(self):
+       cur_page = int(self.vkspp_page_label.text())
+       self.vkspp_page_label.setText(f'{cur_page-1}')
+       #self.vkspp_forward_pushButton.setEnabled(True)
+       self.vkspp_search()
+
+    def vkspp_forward(self):
+       cur_page = int(self.vkspp_page_label.text())
+       self.vkspp_page_label.setText(f'{cur_page+1}')
+       #self.vkspp_backward_pushButton.setEnabled(True)
+       self.vkspp_search()
  
     def vkspp_enableButton(self):
        if self.vkspp_publicLineEdit.text():
