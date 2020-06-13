@@ -11,7 +11,7 @@ import webbrowser;
 def in_any_attach(searchedText,listAttachs):
    for attach in listAttachs:
       type_attach = attach['type'];
-      if 'text' in attach[type_attach] and searchedText in attach[type_attach]['text']:
+      if 'text' in attach[type_attach] and searchedText in attach[type_attach]['text'].lower():
          return True;
    return False;
 
@@ -40,7 +40,7 @@ class VKSearchPostponedApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def search(self):
        public_raw = self.publicLineEdit.text()
-       searched = self.plainTextEdit.toPlainText()
+       searched = self.plainTextEdit.toPlainText().lower().strip()
        search_desc = self.textdescCheckBox.isChecked()
        search_attach = self.attachCheckBox.isChecked()
  
@@ -62,24 +62,28 @@ class VKSearchPostponedApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
              #self.respListWidget.setEnabled(True);
              self.respTableWidget.setEnabled(True);
              if search_desc and search_attach:
-                items = [item for item in items if searched in item['text'] or in_any_attach(searched,item['attachments'])];
+                items = [item for item in items if searched in item['text'].lower() or ('attachments' in item and in_any_attach(searched,item['attachments']))];
              elif search_desc:
-                items = [item for item in items if searched in item['text']];
+                items = [item for item in items if searched in item['text'].lower()];
              elif search_attach:
-                items = [item for item in items if in_any_attach(searched,item['attachments'])];
-             posts_list = [{'link':'https://vk.com/wall'+str(post['owner_id'])+'_'+str(post['id']), 'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date']))} for post in items]
+                items = [item for item in items if 'attachments' in item and in_any_attach(searched,item['attachments'])];
+             posts_list = [{'link':f"https://vk.com/wall{post['owner_id']}_{post['id']}",
+                            'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date'])),
+                            'num_attach': f"{len(post['attachments'])}"} for post in items]
              #self.respListWidget.addItems(posts_list);
              for column,post in enumerate(posts_list):
                 rowPosition = self.respTableWidget.rowCount()
                 self.respTableWidget.insertRow(rowPosition)
                 self.respTableWidget.setItem(column, 0, QtWidgets.QTableWidgetItem(post['link']))
                 self.respTableWidget.setItem(column, 1, QtWidgets.QTableWidgetItem(post['date']))
+                self.respTableWidget.setItem(column, 2, QtWidgets.QTableWidgetItem(post['num_attach']))
+             self.respTableWidget.resizeColumnsToContents()
           else:
              self.respGroupBox.setEnabled(False);
              #self.respListWidget.setEnabled(False);
              self.respTableWidget.setEnabled(False);
        except vk_api.exceptions.ApiError as e:
-          if 'Access denied' in str(e):
+          if 'Access denied' in f"{e}":
              self.statusbar.showMessage('Нет доступа к сообществу',10000)
              print('\a',end='\r')
           else:
