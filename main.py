@@ -65,7 +65,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
            with open('login','w') as f:
               f.write(login);
         try:
-           self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login,captcha_handler=vkAuth.captcha_handler);
+           self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login);
         except vk_api.exceptions.AuthError:
            os.remove('login')
            input("Ошибка авторизации, проверьте правильность логина и пароля\nНажмите [Enter] для выхода")
@@ -108,8 +108,10 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           resp = self.vk.method('wall.get', params);
           count_items = resp['count'];
           while params['offset'] < count_items:
-             resp = self.vk.method('wall.get', params);
+             if params['offset']:
+                resp = self.vk.method('wall.get', params);
              items = resp['items'];
+             self.statusBar.showMessage(f"Поиск: {params['offset']}/{count_items}")
 
              if items:
                 if search_desc and search_attach:
@@ -132,6 +134,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                    self.vkspp_respTableWidget.setItem(rowPosition, 3, QtWidgets.QTableWidgetItem(post['author']))
 
                 params['offset'] += 100;
+          self.statusBar.showMessage(f"Поиск: {count_items}/{count_items}",2000)
           if self.vkspp_respTableWidget.rowCount() == 0:
              self.vkspp_respGroupBox.setEnabled(False);
              self.vkspp_respTableWidget.setEnabled(False);
@@ -159,6 +162,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def vkspp_openLink(self,item):
        link = self.vkspp_respTableWidget.item(item.row(),0).text();
        copyClipboard(link);
+       self.statusBar.showMessage('Скопировано!',2000)
 
     def vkspp_recheck_filter(self):
        if self.vkspp_postponed_radioButton.isChecked():
@@ -208,11 +212,12 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
            self.vked_message.setText(message)
 
            self.vked_attachments.setRowCount(0)
-           for column,attachment in enumerate(attachments):
+           for attachment in attachments:
               rowPosition = self.vked_attachments.rowCount()
               self.vked_attachments.insertRow(rowPosition)
-              self.vked_attachments.setItem(column, 0, QtWidgets.QTableWidgetItem(attachment['type']))
-              self.vked_attachments.setItem(column, 1, QtWidgets.QTableWidgetItem(f"{attachment[attachment['type']]['owner_id']}_{attachment[attachment['type']]['id']}"))
+              self.vked_attachments.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem(attachment['type']))
+              self.vked_attachments.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(f"{attachment[attachment['type']]['owner_id']}_{attachment[attachment['type']]['id']}"))
+           self.vked_attachments.resizeColumnsToContents()
 
            if signed:
               self.vked_signed_2.setChecked(True)
@@ -265,18 +270,21 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        mark_as_ads = int(self.vked_mark_as_ads.isChecked())
        close_comments = int(self.vked_close_comments.isChecked())
        copyright = self.vked_copyright.text()
-       self.vk.method('wall.edit', {'owner_id': owner_id,
-                                    'from_group':1,
-                                    'message': message,
-                                    'attachments':attachments,
-                                    'signed':signed,
-                                    'publish_date':publish_date,
-                                    'post_id':post_id,
-                                    'mark_as_ads':mark_as_ads,
-                                    'close_comments':close_comments,
-                                    'copyright':copyright})
-       self.tab_vkeditor.setEnabled(True)
-       self.statusBar.showMessage('Опубликовано',2000)
+       try:
+          self.vk.method('wall.edit', {'owner_id': owner_id,
+                                       'from_group':1,
+                                       'message': message,
+                                       'attachments':attachments,
+                                       'signed':signed,
+                                       'publish_date':publish_date,
+                                       'post_id':post_id,
+                                       'mark_as_ads':mark_as_ads,
+                                       'close_comments':close_comments,
+                                       'copyright':copyright})
+          self.tab_vkeditor.setEnabled(True)
+          self.statusBar.showMessage('Опубликовано',2000)
+       except vk_api.exceptions.Captcha as captcha:
+          vkAuth.captcha_handler(captcha, show_captcha=True);
 
     def vked_previewW(self):
        owner = self.vked_owner_id.text().split(' ',1)[-1]
