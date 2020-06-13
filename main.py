@@ -7,6 +7,7 @@ import io;
 import os;
 import time;
 from urllib.request import urlretrieve;
+import FileOptimizer;
 
 import win32clipboard  # http://sourceforge.net/projects/pywin32/
 def copyClipboard(text):
@@ -352,6 +353,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
            self.vkps_downloadButton.setEnabled(False)
            post_id = url.split('?')[0].split('wall')[-1]
            resp = self.vk.method('wall.getById',{'posts': post_id})
+           filelist = []
            for item in resp:
               if 'attachments' in item:
                  nums = len(item['attachments'])
@@ -360,8 +362,12 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                     if attachment['type']=='link':
                        pass;
                     else:
-                       urlretrieve(vkAuth.get_max_photo(attachment['photo']),os.path.join(os.path.normpath(self.vkps_fileEdit.text()),f'{num+1}.jpg'));
+                       filename = os.path.join(os.path.normpath(self.vkps_fileEdit.text()),f'{num+1}.jpg')
+                       filelist.append(filename)
+                       urlretrieve(vkAuth.get_max_photo(attachment['photo']),filename);
                        self.vkps_progressBar.setValue(num+1)
+           if filelist:
+              FileOptimizer.optimise(filelist, silentMode=True, processes=os.cpu_count())
            self.vkps_downloadButton.setEnabled(True)
            self.statusBar.showMessage('Готово!',2000)
         except:
