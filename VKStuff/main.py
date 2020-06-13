@@ -21,6 +21,8 @@ def pasteClipboard():
     win32clipboard.CloseClipboard()
     return data
 
+__all__ = ["VKStuffApp","previewWindow"]
+
 MAX_VKSPP_SEARCH_COUNT = 100;
 
 def in_any_attach(searchedText,listAttachs):
