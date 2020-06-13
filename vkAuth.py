@@ -1,4 +1,4 @@
-﻿# v. 191030
+﻿# v. 200425
 import vk_api;
 from getpass import getpass;
 import json;
@@ -7,6 +7,15 @@ import time;
 import vk_api.upload;
 import cv2;
 import requests;
+import numpy as np;
+import sys
+
+def beep():
+   try:
+      import winsound
+      winsound.MessageBeep()
+   except:
+      print('\a')
 
 # Двухфакторная авторизация
 def auth_handler():
@@ -17,23 +26,32 @@ def auth_handler():
    return key, remember_device
 
 # Обработка капчи
-def captcha_handler(captcha, key=None, show_captcha=False):
+def captcha_handler(captcha, key=None, show_captcha=False, go_flag=None, stdin=None):
    """ При возникновении капчи вызывается эта функция и ей передается объект
        капчи. Через метод get_url можно получить ссылку на изображение.
        Через метод try_again можно попытаться отправить запрос с кодом капчи
    """
    if 'VkApi._vk_login' in f"{captcha.func}":
       raise vk_api.exceptions.AuthError()
-   if not key:
-      try:
+   while not key:
+   #   try:
          captcha_url = captcha.get_url();
          if show_captcha:
-            show_img(requests.get(captcha_url).content);
+            show_img(requests.get(captcha_url).content, captcha_url.rsplit("sid=",1)[-1].split("&",1)[0]);
+         if hasattr(go_flag, "value"):
+            back_flag = go_flag.value
+         beep()
+         if stdin:
+            print(stdin)
+            sys.stdin = stdin;
          key = input(f"Введите капчу {captcha_url}: ");
+         if hasattr(go_flag, "value"):
+            go_flag.value = back_flag
          if show_captcha:
             cv2.destroyAllWindows();
-      except EOFError:
-         key = input()
+   #   except EOFError:
+   #      cv2.waitKey(10);
+   #      key = False
    key = key.strip()
    # Пробуем снова отправить запрос с капчей
    return captcha.try_again(key)
@@ -43,7 +61,7 @@ def captcha_saver(captcha):
       for s in (captcha.sid, captcha.func, captcha.args, captcha.kwargs, captcha.url, time.time()):
          f.write(f'{s}\n')
    print(captcha);
-   print('\a');
+   print('\a'); beep()
 
 def too_many_rps_handler(self, error):
    """ Обработчик ошибки "Слишком много запросов в секунду".
@@ -124,43 +142,20 @@ def get_max_photo(photo):
          photo_size = "photo_130";
       elif "photo_75" in photo:
          photo_size = "photo_75";
-      return {'url': photo[photo_size], 'width':photo['width'], 'height':photo['height']}
+      item = {'url': photo[photo_size]}
+      if 'width' in photo:
+         item.update({'width':photo['width'], 'height':photo['height']})
+      return item;
 
 # Функция показа изображения без перехвата управления вызванным окном
 def show_img(img_file,title=''):
    cv_img = cv2.imdecode(np.asarray(bytearray(img_file)), 1);
+   cv2.namedWindow(title);
+   cv2.moveWindow(title, 400,300);
    cv2.imshow(title,cv_img);
    cv2.waitKey(1);
 
 # В классе некоторые исправления
 class betterVkUpload(vk_api.upload.VkUpload):
     # Добавлен caption - описание фото
-    def photo_wall(self, photos, user_id=None, group_id=None, caption=None):
-        """ Загрузка изображений на стену пользователя или в группу
-
-        :param photos: путь к изображению(ям) или file-like объект(ы)
-        :type photos: str or list
-
-        :param user_id: идентификатор пользователя
-        :param group_id: идентификатор сообщества (если загрузка идет в группу)
-        """
-
-        values = {}
-
-        if user_id:
-            values['user_id'] = user_id
-        elif group_id:
-            values['group_id'] = group_id
-
-        if caption:
-            values['caption'] = caption
-
-        response = self.vk.method('photos.getWallUploadServer', values)
-        url = response['upload_url']
-
-        with vk_api.upload.FilesOpener(photos) as photos_files:
-            response = self.vk.http.post(url, files=photos_files)
-
-        values.update(response.json())
-
-        return self.vk.method('photos.saveWallPhoto', values)
+    pass

@@ -1,3 +1,5 @@
 *.json
 __pycache__/
 login
+vk_config*
+preview.html
