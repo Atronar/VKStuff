@@ -7,7 +7,6 @@ import io;
 import os;
 import time;
 from urllib.request import urlretrieve;
-import math;
 
 import win32clipboard  # http://sourceforge.net/projects/pywin32/
 def copyClipboard(text):
@@ -37,9 +36,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.setupUi(self) 
 
         # Поиск в отложке
-        self.vkspp_pushButton.clicked.connect(self.vkspp_new_search)
-        self.vkspp_backward_pushButton.clicked.connect(self.vkspp_backward)
-        self.vkspp_forward_pushButton.clicked.connect(self.vkspp_forward)
+        self.vkspp_pushButton.clicked.connect(self.vkspp_search)
         self.vkspp_publicLineEdit.textChanged.connect(self.vkspp_enableButton)
         self.vkspp_respTableWidget.itemDoubleClicked.connect(self.vkspp_openLink)
         self.vkspp_suggests_radioButton.clicked.connect(self.vkspp_recheck_filter)
@@ -97,7 +94,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           search_filter = 'postponed';
  
        params = {'count':MAX_VKSPP_SEARCH_COUNT,
-                 'offset':(int(self.vkspp_page_label.text())-1)*MAX_VKSPP_SEARCH_COUNT,
+                 'offset':0,
                  'filter':search_filter,
                  'extended':0}
  
@@ -109,65 +106,49 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        self.vkspp_respTableWidget.setRowCount(0)
        try: 
           resp = self.vk.method('wall.get', params);
-
           count_items = resp['count'];
-          if int(self.vkspp_page_label.text()) <= 1:
-             self.vkspp_backward_pushButton.setEnabled(False)
-          else:
-             self.vkspp_backward_pushButton.setEnabled(True)
-          if int(self.vkspp_page_label.text()) >= math.ceil(count_items/MAX_VKSPP_SEARCH_COUNT):
-             self.vkspp_forward_pushButton.setEnabled(False)
-          else:
-             self.vkspp_forward_pushButton.setEnabled(True)
+          while params['offset'] < count_items:
+             resp = self.vk.method('wall.get', params);
+             items = resp['items'];
 
-          items = resp['items'];
-          if items:
-             self.vkspp_respGroupBox.setEnabled(True);
-             self.vkspp_respTableWidget.setEnabled(True);
-             if search_desc and search_attach:
-                items = [item for item in items if searched in item['text'].lower() or ('attachments' in item and in_any_attach(searched,item['attachments']))];
-             elif search_desc:
-                items = [item for item in items if searched in item['text'].lower()];
-             elif search_attach:
-                items = [item for item in items if 'attachments' in item and in_any_attach(searched,item['attachments'])];
-             posts_list = [{'link':f"https://vk.com/wall{post['owner_id']}_{post['id']}",
-                            'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date'])),
-                            'num_attach': f"{len(post['attachments']) if 'attachments' in post else 0}",
-                            'author': f"{post['signer_id'] if 'signer_id' in post else 0}"
-                           } for post in items]
-             for column,post in enumerate(posts_list):
-                rowPosition = self.vkspp_respTableWidget.rowCount()
-                self.vkspp_respTableWidget.insertRow(rowPosition)
-                self.vkspp_respTableWidget.setItem(column, 0, QtWidgets.QTableWidgetItem(post['link']))
-                self.vkspp_respTableWidget.setItem(column, 1, QtWidgets.QTableWidgetItem(post['date']))
-                self.vkspp_respTableWidget.setItem(column, 2, QtWidgets.QTableWidgetItem(post['num_attach']))
-                self.vkspp_respTableWidget.setItem(column, 3, QtWidgets.QTableWidgetItem(post['author']))
-             self.vkspp_respTableWidget.resizeColumnsToContents()
-          else:
+             if items:
+                if search_desc and search_attach:
+                   items = [item for item in items if searched in item['text'].lower() or ('attachments' in item and in_any_attach(searched,item['attachments']))];
+                elif search_desc:
+                   items = [item for item in items if searched in item['text'].lower()];
+                elif search_attach:
+                   items = [item for item in items if 'attachments' in item and in_any_attach(searched,item['attachments'])];
+                posts_list = [{'link':f"https://vk.com/wall{post['owner_id']}_{post['id']}",
+                               'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date'])),
+                               'num_attach': f"{len(post['attachments']) if 'attachments' in post else 0}",
+                               'author': f"{post['signer_id'] if 'signer_id' in post else 0}"
+                              } for post in items]
+                for post in posts_list:
+                   rowPosition = self.vkspp_respTableWidget.rowCount()
+                   self.vkspp_respTableWidget.insertRow(rowPosition)
+                   self.vkspp_respTableWidget.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem(post['link']))
+                   self.vkspp_respTableWidget.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(post['date']))
+                   self.vkspp_respTableWidget.setItem(rowPosition, 2, QtWidgets.QTableWidgetItem(post['num_attach']))
+                   self.vkspp_respTableWidget.setItem(rowPosition, 3, QtWidgets.QTableWidgetItem(post['author']))
+
+                params['offset'] += 100;
+          if self.vkspp_respTableWidget.rowCount() == 0:
              self.vkspp_respGroupBox.setEnabled(False);
              self.vkspp_respTableWidget.setEnabled(False);
+             self.statusBar.showMessage('Постов не найдено',2000)
+          else:
+             self.vkspp_respGroupBox.setEnabled(True);
+             self.vkspp_respTableWidget.setEnabled(True);
+             self.vkspp_respTableWidget.resizeColumnsToContents()
        except vk_api.exceptions.ApiError as e:
           if 'Access denied' in f"{e}":
              self.statusBar.showMessage('Нет доступа к сообществу',10000)
              print('\a',end='\r')
-             self.vkspp_forward_pushButton.setEnabled(False)
-             self.vkspp_backward_pushButton.setEnabled(False)
+          elif 'owner_id should be negative' in f"{e}":
+             self.statusBar.showMessage('Предложка есть только в сообществах',2000)
+             print('\a',end='\r')
           else:
              raise
-
-    def vkspp_new_search(self):
-       self.vkspp_page_label.setText('1')
-       self.vkspp_search()
-
-    def vkspp_backward(self):
-       cur_page = int(self.vkspp_page_label.text())
-       self.vkspp_page_label.setText(f'{cur_page-1}')
-       self.vkspp_search()
-
-    def vkspp_forward(self):
-       cur_page = int(self.vkspp_page_label.text())
-       self.vkspp_page_label.setText(f'{cur_page+1}')
-       self.vkspp_search()
  
     def vkspp_enableButton(self):
        if self.vkspp_publicLineEdit.text():
@@ -371,7 +352,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                     if attachment['type']=='link':
                        pass;
                     else:
-                       urlretrieve(attachment['photo']['sizes'][-1]['url'],os.path.join(os.path.normpath(self.vkps_fileEdit.text()),f'{num+1}.jpg'));
+                       urlretrieve(vkAuth.get_max_photo(attachment['photo']),os.path.join(os.path.normpath(self.vkps_fileEdit.text()),f'{num+1}.jpg'));
                        self.vkps_progressBar.setValue(num+1)
            self.vkps_downloadButton.setEnabled(True)
            self.statusBar.showMessage('Готово!',2000)
