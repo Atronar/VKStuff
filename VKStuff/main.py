@@ -60,14 +60,14 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         # Инфо
         self.info_1_auth_pushButton.clicked.connect(self.info_auth);
-        self.logins = [];
+        self.logins = {};
         self.info_1_accountsBox.currentTextChanged.connect(self.info_change_login);
 
         # Авторизация
         try:
            with open('vk_config.v2.json', 'r') as f:
               js = json.load(f)
-           self.logins = list(js);
+           self.logins = {l:'' for l in js};
         except (IOError, ValueError):
            js = {}
         try:
@@ -75,28 +75,29 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
               login = f.read();
         except (FileNotFoundError, io.UnsupportedOperation):
            if self.logins:
-              login = self.logins[0];
+              login = list(self.logins)[0];
            else:
               login = input('Введите логин: ');
            with open('login','w') as f:
               f.write(login);
         try:
            self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login);
-           if login not in self.logins:
-              self.logins.append(login);
+           resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
+           self.logins[login] = {'vk': self.vk,
+                                 'id': f"{self.myid}",
+                                 'name': f"{resp['first_name']} {resp['last_name']}",
+                                 'photo': resp['photo_100']};
         except vk_api.exceptions.AuthError:
            os.remove('login')
            input("Ошибка авторизации, проверьте правильность логина и пароля\nНажмите [Enter] для выхода")
            raise
-        self.info_1_accountsBox.addItems(self.logins);
+        self.info_1_accountsBox.addItems(list(self.logins));
 
-        resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
-        self.info_1_id.setText(f"{self.myid}");
-        self.info_1_name.setText(f"{resp['first_name']} {resp['last_name']}");
-        resp['photo_100']
+        self.info_1_id.setText(self.logins[login]['id']);
+        self.info_1_name.setText(self.logins[login]['name']);
         scene = QtWidgets.QGraphicsScene()
         pixmap = QtGui.QPixmap()
-        pixmap.loadFromData(self.vk.http.get(resp['photo_100']).content)
+        pixmap.loadFromData(self.vk.http.get(self.logins[login]['photo']).content)
         scene.addPixmap(pixmap)
         self.info_ava.setScene(scene)
 
@@ -423,24 +424,32 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 login = f.read();
           except (FileNotFoundError, io.UnsupportedOperation):
              if self.logins:
-                login = self.logins[0];
+                login = list(self.logins)[0];
              else:
                 login = input('Введите логин: ');
              with open('login','w') as f:
                 f.write(login);
        if login not in self.logins:
-          self.logins.append(login);
+          self.logins[login] = {};
           self.info_1_accountsBox.addItem(login);
           self.info_1_accountsBox.setCurrentIndex(self.info_1_accountsBox.count()-1);
        try:
-          self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login,captcha_handler=vkAuth.captcha_handler);
-          resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
-          self.info_1_id.setText(f"{self.myid}");
-          self.info_1_name.setText(f"{resp['first_name']} {resp['last_name']}");
-          resp['photo_100']
+          if self.logins[login]:
+             self.vk = self.logins[login]['vk'];
+             self.info_1_id.setText(self.logins[login]['id']);
+             self.info_1_name.setText(self.logins[login]['name']);
+          else:
+             self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login,captcha_handler=vkAuth.captcha_handler);
+             resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
+             self.logins[login] = {'vk': self.vk,
+                                   'id': f"{self.myid}",
+                                   'name': f"{resp['first_name']} {resp['last_name']}",
+                                   'photo': resp['photo_100']};
+             self.info_1_id.setText(f"{self.myid}");
+             self.info_1_name.setText(f"{resp['first_name']} {resp['last_name']}");
           scene = QtWidgets.QGraphicsScene()
           pixmap = QtGui.QPixmap()
-          pixmap.loadFromData(self.vk.http.get(resp['photo_100']).content)
+          pixmap.loadFromData(self.vk.http.get(self.logins[login]['photo']).content)
           scene.addPixmap(pixmap)
           self.info_ava.setScene(scene)
        except vk_api.exceptions.AuthError:
