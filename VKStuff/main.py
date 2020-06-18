@@ -393,6 +393,14 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
 #
     def info_auth(self):
        login = self.info_1_auth_lineEdit.text();
+       if not login:
+          try:
+             with open('login') as f:
+                login = f.read();
+          except (FileNotFoundError, io.UnsupportedOperation):
+             login = input('Введите логин: ');
+             with open('login','w') as f:
+                f.write(login);
        try:
           self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login,captcha_handler=vkAuth.captcha_handler);
           resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
