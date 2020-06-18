@@ -288,6 +288,10 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           self.statusBar.showMessage('Опубликовано',2000)
        except vk_api.exceptions.Captcha as captcha:
           vkAuth.captcha_handler(captcha, show_captcha=True);
+       except vk_api.exceptions.ApiError as e:
+          print('\a')
+          self.statusBar.showMessage(f'{e}',10000)
+          self.tab_vkeditor.setEnabled(True)
 
     def vked_previewW(self):
        owner = self.vked_owner_id.text().split(' ',1)[-1]
