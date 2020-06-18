@@ -34,10 +34,11 @@ def in_any_attach(searchedText,listAttachs):
    return False;
 
 class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
-    def __init__(self):
+    def __init__(self,app):
         # Инициализация приложения
         super().__init__()
         self.setupUi(self) 
+        self.app = app
 
         # Поиск в отложке
         self.vkspp_pushButton.clicked.connect(self.vkspp_search)
@@ -133,7 +134,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 resp = self.vk.method('wall.get', params);
              items = resp['items'];
              self.vkspp_progressBar.setValue(params['offset'])
-             QtWidgets.QApplication.sendPostedEvents()
+             self.app.sendPostedEvents()
 
              if items:
                 if search_desc and search_attach:
@@ -400,7 +401,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                        filelist.append(filename)
                        urlretrieve(vkAuth.get_max_photo(attachment['photo']),filename);
                        self.vkps_progressBar.setValue(num+1)
-                       QtWidgets.QApplication.sendPostedEvents()
+                       self.app.sendPostedEvents()
            if filelist:
               FileOptimizer.optimise(filelist, silentMode=True, processes=os.cpu_count())
            self.vkps_downloadButton.setEnabled(True)
@@ -470,7 +471,7 @@ class previewWindow(QtWidgets.QDialog, preview.Ui_Dialog):
 
 def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
-    window = VKStuffApp()  # Создаём объект класса ExampleApp
+    window = VKStuffApp(app)  # Создаём объект класса ExampleApp
     window.show()  # Показываем окно
     app.exec_()  # и запускаем приложение
 
