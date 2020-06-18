@@ -57,7 +57,9 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.vkps_downloadButton.clicked.connect(self.vkps_download)
 
         # Инфо
-        self.info_1_auth_pushButton.clicked.connect(self.info_auth)
+        self.info_1_auth_pushButton.clicked.connect(self.info_auth);
+        self.logins = [];
+        self.info_1_accountsBox.currentTextChanged.connect(self.info_change_login);
 
         # Авторизация
         try:
@@ -73,6 +75,9 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
            os.remove('login')
            input("Ошибка авторизации, проверьте правильность логина и пароля\nНажмите [Enter] для выхода")
            raise
+        self.logins.append(login);
+        self.info_1_accountsBox.addItems(self.logins);
+
         resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
         self.info_1_id.setText(f"{self.myid}");
         self.info_1_name.setText(f"{resp['first_name']} {resp['last_name']}");
@@ -407,6 +412,10 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
              login = input('Введите логин: ');
              with open('login','w') as f:
                 f.write(login);
+       if login not in self.logins:
+          self.logins.append(login);
+          self.info_1_accountsBox.addItem(login);
+          self.info_1_accountsBox.setCurrentIndex(self.info_1_accountsBox.count()-1);
        try:
           self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login,captcha_handler=vkAuth.captcha_handler);
           resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
@@ -421,6 +430,10 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        except vk_api.exceptions.AuthError:
           self.statusBar.showMessage("Ошибка авторизации, проверьте правильность логина и пароля",10000)
           print('\a',end='\r')
+
+    def info_change_login(self):
+      login = self.info_1_accountsBox.currentText();
+      self.info_1_auth_lineEdit.setText(login);
 #
 #########
 
