@@ -118,11 +118,11 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           self.vkspp_progressBar.setRange(0,count_items);
           self.vkspp_progressBar.setTextVisible(True);
           while params['offset'] < count_items:
-             QtWidgets.QApplication.sendPostedEvents()
              if params['offset']:
                 resp = self.vk.method('wall.get', params);
              items = resp['items'];
              self.vkspp_progressBar.setValue(params['offset'])
+             QtWidgets.QApplication.sendPostedEvents()
 
              if items:
                 if search_desc and search_attach:
@@ -389,6 +389,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                        filelist.append(filename)
                        urlretrieve(vkAuth.get_max_photo(attachment['photo']),filename);
                        self.vkps_progressBar.setValue(num+1)
+                       QtWidgets.QApplication.sendPostedEvents()
            if filelist:
               FileOptimizer.optimise(filelist, silentMode=True, processes=os.cpu_count())
            self.vkps_downloadButton.setEnabled(True)
