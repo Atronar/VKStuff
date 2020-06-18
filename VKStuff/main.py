@@ -219,7 +219,10 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
               rowPosition = self.vked_attachments.rowCount()
               self.vked_attachments.insertRow(rowPosition)
               self.vked_attachments.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem(attachment['type']))
-              self.vked_attachments.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(f"{attachment[attachment['type']]['owner_id']}_{attachment[attachment['type']]['id']}"))
+              if attachment['type']=='link':
+                 self.vked_attachments.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(attachment['link']['url']))
+              else:
+                 self.vked_attachments.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(f"{attachment[attachment['type']]['owner_id']}_{attachment[attachment['type']]['id']}"))
            self.vked_attachments.resizeColumnsToContents()
 
            if signed:
@@ -265,7 +268,10 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        rowCount = self.vked_attachments.rowCount()
        for row in range(0,rowCount):
           if self.vked_attachments.item(row,0) and self.vked_attachments.item(row,0).text() and self.vked_attachments.item(row,1) and self.vked_attachments.item(row,1).text():
-             attachments = f"{attachments}{self.vked_attachments.item(row,0).text()}{self.vked_attachments.item(row,1).text()},"
+             if self.vked_attachments.item(row,0).text()=='link':
+                attachments = f"{attachments}{self.vked_attachments.item(row,1).text().replace(',','')},"
+             else:
+                attachments = f"{attachments}{self.vked_attachments.item(row,0).text()}{self.vked_attachments.item(row,1).text()},"
 
        signed = int(self.vked_signed_2.isChecked())
        publish_date = int(time.mktime(time.strptime(self.vked_publish_date.text(),'%d.%m.%Y %H:%M')))
