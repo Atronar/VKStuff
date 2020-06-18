@@ -7,6 +7,7 @@ import io;
 import os;
 import time;
 from urllib.request import urlretrieve;
+import json;
 import FileOptimizer;
 
 import win32clipboard  # http://sourceforge.net/projects/pywin32/
@@ -63,19 +64,29 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         # Авторизация
         try:
+           with open('vk_config.v2.json', 'r') as f:
+              js = json.load(f)
+           self.logins = list(js);
+        except (IOError, ValueError):
+           js = {}
+        try:
            with open('login') as f:
               login = f.read();
         except (FileNotFoundError, io.UnsupportedOperation):
-           login = input('Введите логин: ');
+           if self.logins:
+              login = self.logins[0];
+           else:
+              login = input('Введите логин: ');
            with open('login','w') as f:
               f.write(login);
         try:
            self.vk, self.token, self.myid, self.myname = vkAuth.vk_auth(login);
+           if login not in self.logins:
+              self.logins.append(login);
         except vk_api.exceptions.AuthError:
            os.remove('login')
            input("Ошибка авторизации, проверьте правильность логина и пароля\nНажмите [Enter] для выхода")
            raise
-        self.logins.append(login);
         self.info_1_accountsBox.addItems(self.logins);
 
         resp = self.vk.method("users.get", {"user_ids":self.myid, "fields":"photo_100"})[0]
@@ -410,7 +421,10 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
              with open('login') as f:
                 login = f.read();
           except (FileNotFoundError, io.UnsupportedOperation):
-             login = input('Введите логин: ');
+             if self.logins:
+                login = self.logins[0];
+             else:
+                login = input('Введите логин: ');
              with open('login','w') as f:
                 f.write(login);
        if login not in self.logins:
