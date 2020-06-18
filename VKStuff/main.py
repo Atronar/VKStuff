@@ -110,11 +110,14 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        try: 
           resp = self.vk.method('wall.get', params);
           count_items = resp['count'];
+          self.vkspp_progressBar.setRange(0,count_items);
+          self.vkspp_progressBar.setTextVisible(True);
           while params['offset'] < count_items:
+             QtWidgets.QApplication.sendPostedEvents()
              if params['offset']:
                 resp = self.vk.method('wall.get', params);
              items = resp['items'];
-             self.statusBar.showMessage(f"Поиск: {params['offset']}/{count_items}")
+             self.vkspp_progressBar.setValue(params['offset'])
 
              if items:
                 if search_desc and search_attach:
@@ -137,7 +140,8 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                    self.vkspp_respTableWidget.setItem(rowPosition, 3, QtWidgets.QTableWidgetItem(post['author']))
 
                 params['offset'] += 100;
-          self.statusBar.showMessage(f"Поиск: {count_items}/{count_items}",2000)
+          self.vkspp_progressBar.setValue(count_items)
+          self.statusBar.showMessage("Поиск завершён",2000)
           if self.vkspp_respTableWidget.rowCount() == 0:
              self.vkspp_respGroupBox.setEnabled(False);
              self.vkspp_respTableWidget.setEnabled(False);
@@ -148,10 +152,12 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
              self.vkspp_respTableWidget.resizeColumnsToContents()
        except vk_api.exceptions.ApiError as e:
           if 'Access denied' in f"{e}":
-             self.statusBar.showMessage('Нет доступа к сообществу',10000)
+             self.statusBar.showMessage('Нет доступа к сообществу',10000);
+             self.vkspp_progressBar.setTextVisible(False);
              print('\a',end='\r')
           elif 'owner_id should be negative' in f"{e}":
-             self.statusBar.showMessage('Предложка есть только в сообществах',2000)
+             self.statusBar.showMessage('Предложка есть только в сообществах',2000);
+             self.vkspp_progressBar.setTextVisible(False);
              print('\a',end='\r')
           else:
              raise
