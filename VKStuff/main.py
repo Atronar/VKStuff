@@ -33,6 +33,81 @@ def in_any_attach(searchedText,listAttachs):
          return True;
    return False;
 
+class SPPThread(QtCore.QThread):
+   vkspp_progressBar_setRange = QtCore.pyqtSignal(int);
+   vkspp_progressBar_setTextVisible = QtCore.pyqtSignal(bool);
+   vkspp_progressBar_setValue = QtCore.pyqtSignal(int);
+   vkspp_respTableWidget_insertRow = QtCore.pyqtSignal(list);
+   statusBar_showMessage = QtCore.pyqtSignal(str,int);
+   vkspp_respTableWidget_setEnabled = QtCore.pyqtSignal(bool);
+   vkspp_respGroupBox_setEnabled = QtCore.pyqtSignal(bool);
+
+   def __init__(self,app,params,searched,search_desc,search_attach):
+      super().__init__();
+      self.app = app;
+      self.params = params;
+      self.searched = searched;
+      self.search_desc = search_desc;
+      self.search_attach = search_attach;
+
+   @QtCore.pyqtSlot()
+   def run(self):
+       posts_count = 0;
+       try: 
+          resp = self.app.vk.method('wall.get', self.params);
+          count_items = resp['count'];
+          self.vkspp_progressBar_setRange.emit(count_items);
+          self.vkspp_progressBar_setTextVisible.emit(True);
+          while self.params['offset'] < count_items:
+             if self.params['offset']:
+                resp = self.app.vk.method('wall.get', self.params);
+             items = resp['items'];
+             self.vkspp_progressBar_setValue.emit(self.params['offset']);
+
+             if items:
+                if self.search_desc and self.search_attach:
+                   items = [item for item in items
+                            if self.searched in item['text'].lower()
+                               or ('attachments' in item
+                                   and in_any_attach(self.searched,item['attachments'])
+                                  )
+                           ];
+                elif self.search_desc:
+                   items = [item for item in items
+                            if self.searched in item['text'].lower()];
+                elif self.search_attach:
+                   items = [item for item in items
+                            if 'attachments' in item
+                               and in_any_attach(self.searched,item['attachments'])];
+                posts_list = [{'link':f"https://vk.com/wall{post['owner_id']}_{post['id']}",
+                               'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date'])),
+                               'num_attach': f"{len(post['attachments']) if 'attachments' in post else 0}",
+                               'author': f"{post['signer_id'] if 'signer_id' in post else 0}"
+                              } for post in items];
+                posts_count += len(posts_list);
+                self.vkspp_respTableWidget_insertRow.emit(posts_list);
+
+                self.params['offset'] += 100;
+          self.vkspp_progressBar_setValue.emit(count_items);
+
+       except vk_api.exceptions.ApiError as e:
+          if 'Access denied' in f"{e}":
+             self.statusBar_showMessage.emit('Нет доступа к сообществу',10000);
+             self.vkspp_progressBar_setTextVisible.emit(False);
+             print('\a',end='\r');
+          elif 'owner_id should be negative' in f"{e}":
+             self.statusBar_showMessage.emit('Предложка есть только в сообществах',2000);
+             self.vkspp_progressBar_setTextVisible.emit(False);
+             print('\a',end='\r');
+          else:
+             raise
+       if posts_count == 0:
+          self.vkspp_respGroupBox_setEnabled.emit(False);
+          self.vkspp_respTableWidget_setEnabled.emit(False);
+          self.statusBar_showMessage.emit('Постов не найдено',2000);
+       else:
+          self.statusBar_showMessage.emit("Поиск завершён",2000);
+
 class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def __init__(self,app):
         # Инициализация приложения
@@ -46,6 +121,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.vkspp_respTableWidget.itemDoubleClicked.connect(self.vkspp_openLink)
         self.vkspp_suggests_radioButton.clicked.connect(self.vkspp_recheck_filter)
         self.vkspp_postponed_radioButton.clicked.connect(self.vkspp_recheck_filter)
+        self.thread = QtCore.QThread(parent=self);
 
         # Редактор постов
         self.vked_getPostButton.clicked.connect(self.vked_get_post)
@@ -125,61 +201,62 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           params['domain'] = public_raw.rsplit('/',1)[-1].split('?',1)[0].split('#',1)[0]
 
        self.vkspp_respTableWidget.setRowCount(0)
-       try: 
-          resp = self.vk.method('wall.get', params);
-          count_items = resp['count'];
-          self.vkspp_progressBar.setRange(0,count_items);
-          self.vkspp_progressBar.setTextVisible(True);
-          while params['offset'] < count_items:
-             if params['offset']:
-                resp = self.vk.method('wall.get', params);
-             items = resp['items'];
-             self.vkspp_progressBar.setValue(params['offset'])
-             self.app.sendPostedEvents()
 
-             if items:
-                if search_desc and search_attach:
-                   items = [item for item in items if searched in item['text'].lower() or ('attachments' in item and in_any_attach(searched,item['attachments']))];
-                elif search_desc:
-                   items = [item for item in items if searched in item['text'].lower()];
-                elif search_attach:
-                   items = [item for item in items if 'attachments' in item and in_any_attach(searched,item['attachments'])];
-                posts_list = [{'link':f"https://vk.com/wall{post['owner_id']}_{post['id']}",
-                               'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date'])),
-                               'num_attach': f"{len(post['attachments']) if 'attachments' in post else 0}",
-                               'author': f"{post['signer_id'] if 'signer_id' in post else 0}"
-                              } for post in items]
-                for post in posts_list:
-                   rowPosition = self.vkspp_respTableWidget.rowCount()
-                   self.vkspp_respTableWidget.insertRow(rowPosition)
-                   self.vkspp_respTableWidget.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem(post['link']))
-                   self.vkspp_respTableWidget.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(post['date']))
-                   self.vkspp_respTableWidget.setItem(rowPosition, 2, QtWidgets.QTableWidgetItem(post['num_attach']))
-                   self.vkspp_respTableWidget.setItem(rowPosition, 3, QtWidgets.QTableWidgetItem(post['author']))
+       self.vkspp_respTableWidget.setEnabled(True);
+       self.vkspp_respGroupBox.setEnabled(True);
 
-                params['offset'] += 100;
-          self.vkspp_progressBar.setValue(count_items)
-          self.statusBar.showMessage("Поиск завершён",2000)
-          if self.vkspp_respTableWidget.rowCount() == 0:
-             self.vkspp_respGroupBox.setEnabled(False);
-             self.vkspp_respTableWidget.setEnabled(False);
-             self.statusBar.showMessage('Постов не найдено',2000)
-          else:
-             self.vkspp_respGroupBox.setEnabled(True);
-             self.vkspp_respTableWidget.setEnabled(True);
-             self.vkspp_respTableWidget.resizeColumnsToContents()
-       except vk_api.exceptions.ApiError as e:
-          if 'Access denied' in f"{e}":
-             self.statusBar.showMessage('Нет доступа к сообществу',10000);
-             self.vkspp_progressBar.setTextVisible(False);
-             print('\a',end='\r')
-          elif 'owner_id should be negative' in f"{e}":
-             self.statusBar.showMessage('Предложка есть только в сообществах',2000);
-             self.vkspp_progressBar.setTextVisible(False);
-             print('\a',end='\r')
-          else:
-             raise
- 
+       self.thread.quit();
+       self.thread.wait();
+       self.thread = QtCore.QThread(parent=self);
+       self.sppThread = SPPThread(self,params,searched,search_desc,search_attach);
+       self.sppThread.moveToThread(self.thread);
+       self.sppThread.vkspp_progressBar_setRange.connect(self.vkspp_signal_progressBar_setRange);
+       self.sppThread.vkspp_progressBar_setTextVisible.connect(self.vkspp_signal_progressBar_setTextVisible);
+       self.sppThread.vkspp_progressBar_setValue.connect(self.vkspp_signal_progressBar_setValue);
+       self.sppThread.vkspp_respTableWidget_insertRow.connect(self.vkspp_signal_respTableWidget_insertRow);
+       self.sppThread.statusBar_showMessage.connect(self.vkspp_signal_statusBar_showMessage);
+       self.sppThread.vkspp_respTableWidget_setEnabled.connect(self.vkspp_signal_vkspp_respTableWidget_setEnabled);
+       self.sppThread.vkspp_respGroupBox_setEnabled.connect(self.vkspp_signal_vkspp_respGroupBox_setEnabled);
+       self.thread.started.connect(self.sppThread.run);
+       self.thread.finished.connect(self.thread.deleteLater);
+       self.thread.finished.connect(self.sppThread.deleteLater);
+       self.thread.start();
+  ##### Сигналы
+    @QtCore.pyqtSlot(int)
+    def vkspp_signal_progressBar_setRange(self, count):
+       self.vkspp_progressBar.setRange(0,count);
+
+    @QtCore.pyqtSlot(bool)
+    def vkspp_signal_progressBar_setTextVisible(self, flag):
+       self.vkspp_progressBar.setTextVisible(flag);
+
+    @QtCore.pyqtSlot(int)
+    def vkspp_signal_progressBar_setValue(self, count):
+       self.vkspp_progressBar.setValue(count);
+
+    @QtCore.pyqtSlot(list)
+    def vkspp_signal_respTableWidget_insertRow(self, posts_list):
+       for post in posts_list:
+          rowPosition = self.vkspp_respTableWidget.rowCount();
+          self.vkspp_respTableWidget.insertRow(rowPosition);
+          self.vkspp_respTableWidget.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem(post['link']));
+          self.vkspp_respTableWidget.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(post['date']));
+          self.vkspp_respTableWidget.setItem(rowPosition, 2, QtWidgets.QTableWidgetItem(post['num_attach']));
+          self.vkspp_respTableWidget.setItem(rowPosition, 3, QtWidgets.QTableWidgetItem(post['author']));
+       self.vkspp_respTableWidget.resizeColumnsToContents();
+
+    @QtCore.pyqtSlot(str,int)
+    def vkspp_signal_statusBar_showMessage(self, message, timeout):
+       self.statusBar.showMessage(message,timeout);
+
+    @QtCore.pyqtSlot(bool)
+    def vkspp_signal_vkspp_respTableWidget_setEnabled(self, flag):
+       self.vkspp_respTableWidget.setEnabled(flag);
+
+    @QtCore.pyqtSlot(bool)
+    def vkspp_signal_vkspp_respGroupBox_setEnabled(self, flag):
+       self.vkspp_respGroupBox.setEnabled(flag);
+  ######
     def vkspp_enableButton(self):
        if self.vkspp_publicLineEdit.text():
           self.vkspp_pushButton.setEnabled(True);
@@ -483,6 +560,8 @@ def main():
     window = VKStuffApp(app)  # Создаём объект класса ExampleApp
     window.show()  # Показываем окно
     app.exec_()  # и запускаем приложение
+    window.thread.quit(); # Закрываем поток при закрытии окна
+    window.thread.wait();
 
 if __name__ == '__main__':  # Если мы запускаем файл напрямую, а не импортируем
     main()  # то запускаем функцию main()
