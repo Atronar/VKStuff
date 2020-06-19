@@ -8,7 +8,7 @@ import os;
 import time;
 from urllib.request import urlretrieve;
 import json;
-import FileOptimizer;
+from FileOptimizer import FileOptimizer;
 
 import win32clipboard  # http://sourceforge.net/projects/pywin32/
 def copyClipboard(text):
@@ -108,12 +108,51 @@ class SPPThread(QtCore.QThread):
        else:
           self.statusBar_showMessage.emit("Поиск завершён",2000);
 
+class PSThread(QtCore.QThread):
+   vkps_progressBar_setRange = QtCore.pyqtSignal(int);
+   vkps_progressBar_setValue = QtCore.pyqtSignal(int);
+   statusBar_showMessage = QtCore.pyqtSignal(str,int);
+
+   def __init__(self, app, resp, dir_path):
+      super().__init__();
+      self.app = app;
+      self.resp = resp;
+      self.dir_path = dir_path;
+
+   @QtCore.pyqtSlot()
+   def run(self):
+      filelist = [];
+      for item in self.resp:
+         if 'attachments' in item:
+            nums = len(item['attachments']);
+            self.vkps_progressBar_setRange.emit(nums);
+            for num, attachment in enumerate(item['attachments']):
+               if attachment['type']=='link':
+                  pass;
+               elif attachment['type']=='doc':
+                  filename = os.path.join(self.dir_path,f"{num+1}.{attachment['doc']['ext']}");
+                  filelist.append(filename);
+                  urlretrieve(attachment['doc']['url'],filename);
+                  self.vkps_progressBar_setValue.emit(num+1);
+               else:
+                  filename = os.path.join(self.dir_path,f'{num+1}.jpg');
+                  filelist.append(filename);
+                  urlretrieve(vkAuth.get_max_photo(attachment['photo'])['url'],filename);
+                  self.vkps_progressBar_setValue.emit(num+1);
+      if filelist:
+         self.statusBar_showMessage.emit('Оптимизация',0);
+         optimiser = FileOptimizer(filelist);
+         optimiser.optimise(silentMode=False, processes=1);
+      self.app.vkps_downloadButton.setEnabled(True);
+      self.statusBar_showMessage.emit('Готово!',2000);
+
 class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def __init__(self,app):
         # Инициализация приложения
         super().__init__()
         self.setupUi(self) 
         self.app = app
+        self.thread = QtCore.QThread(parent=self);
 
         # Поиск в отложке
         self.vkspp_pushButton.clicked.connect(self.vkspp_search)
@@ -121,7 +160,6 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.vkspp_respTableWidget.itemDoubleClicked.connect(self.vkspp_openLink)
         self.vkspp_suggests_radioButton.clicked.connect(self.vkspp_recheck_filter)
         self.vkspp_postponed_radioButton.clicked.connect(self.vkspp_recheck_filter)
-        self.thread = QtCore.QThread(parent=self);
 
         # Редактор постов
         self.vked_getPostButton.clicked.connect(self.vked_get_post)
@@ -210,6 +248,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        self.thread = QtCore.QThread(parent=self);
        self.sppThread = SPPThread(self,params,searched,search_desc,search_attach);
        self.sppThread.moveToThread(self.thread);
+
        self.sppThread.vkspp_progressBar_setRange.connect(self.vkspp_signal_progressBar_setRange);
        self.sppThread.vkspp_progressBar_setTextVisible.connect(self.vkspp_signal_progressBar_setTextVisible);
        self.sppThread.vkspp_progressBar_setValue.connect(self.vkspp_signal_progressBar_setValue);
@@ -217,6 +256,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        self.sppThread.statusBar_showMessage.connect(self.vkspp_signal_statusBar_showMessage);
        self.sppThread.vkspp_respTableWidget_setEnabled.connect(self.vkspp_signal_vkspp_respTableWidget_setEnabled);
        self.sppThread.vkspp_respGroupBox_setEnabled.connect(self.vkspp_signal_vkspp_respGroupBox_setEnabled);
+
        self.thread.started.connect(self.sppThread.run);
        self.thread.finished.connect(self.thread.deleteLater);
        self.thread.finished.connect(self.sppThread.deleteLater);
@@ -460,34 +500,41 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def vkps_download(self):
         try:
-           if not os.path.isdir(os.path.normpath(self.vkps_fileEdit.text())):
-              os.makedirs(os.path.normpath(self.vkps_fileEdit.text()))
+           dir_path = os.path.normpath(self.vkps_fileEdit.text());
+           if not os.path.isdir(dir_path):
+              os.makedirs(dir_path);
            url = self.vkps_postLink.text()
            self.vkps_downloadButton.setEnabled(False)
            post_id = url.split('?')[0].split('wall')[-1]
            resp = self.vk.method('wall.getById',{'posts': post_id})
-           filelist = []
-           for item in resp:
-              if 'attachments' in item:
-                 nums = len(item['attachments'])
-                 self.vkps_progressBar.setRange(0,nums)
-                 for num, attachment in enumerate(item['attachments']):
-                    if attachment['type']=='link':
-                       pass;
-                    else:
-                       filename = os.path.join(os.path.normpath(self.vkps_fileEdit.text()),f'{num+1}.jpg')
-                       filelist.append(filename)
-                       urlretrieve(vkAuth.get_max_photo(attachment['photo']),filename);
-                       self.vkps_progressBar.setValue(num+1)
-                       self.app.sendPostedEvents()
-           if filelist:
-              FileOptimizer.optimise(filelist, silentMode=True, processes=os.cpu_count())
-           self.vkps_downloadButton.setEnabled(True)
-           self.statusBar.showMessage('Готово!',2000)
+
+           self.thread.quit();
+           self.thread.wait();
+           self.thread = QtCore.QThread(parent=self);
+           self.psThread = PSThread(self, resp, dir_path);
+           self.psThread.moveToThread(self.thread);
+
+           self.psThread.vkps_progressBar_setRange.connect(self.vkps_signal_progressBar_setRange);
+           self.psThread.vkps_progressBar_setValue.connect(self.vkps_signal_progressBar_setValue);
+           self.psThread.statusBar_showMessage.connect(self.vkspp_signal_statusBar_showMessage);
+
+           self.thread.started.connect(self.psThread.run);
+           self.thread.finished.connect(self.thread.deleteLater);
+           self.thread.finished.connect(self.psThread.deleteLater);
+           self.thread.start();
         except:
            self.statusBar.showMessage('Не указана папка',2000)
            self.vkps_downloadButton.setEnabled(True)
            print('\a',end='\r')
+  ###### Сигналы
+    @QtCore.pyqtSlot(int)
+    def vkps_signal_progressBar_setRange(self, count):
+       self.vkps_progressBar.setRange(0,count);
+
+    @QtCore.pyqtSlot(int)
+    def vkps_signal_progressBar_setValue(self, count):
+       self.vkps_progressBar.setValue(count);
+  ######
 #
 #########
 
