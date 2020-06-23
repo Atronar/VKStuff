@@ -89,6 +89,12 @@ class SPPThread(QtCore.QThread):
 
                 self.params['offset'] += 100;
           self.vkspp_progressBar_setValue.emit(count_items);
+          if posts_count == 0:
+             self.vkspp_respGroupBox_setEnabled.emit(False);
+             self.vkspp_respTableWidget_setEnabled.emit(False);
+             self.statusBar_showMessage.emit('Постов не найдено',2000);
+          else:
+             self.statusBar_showMessage.emit("Поиск завершён",2000);
 
        except vk_api.exceptions.ApiError as e:
           if 'Access denied' in f"{e}":
@@ -101,12 +107,6 @@ class SPPThread(QtCore.QThread):
              print('\a',end='\r');
           else:
              raise
-       if posts_count == 0:
-          self.vkspp_respGroupBox_setEnabled.emit(False);
-          self.vkspp_respTableWidget_setEnabled.emit(False);
-          self.statusBar_showMessage.emit('Постов не найдено',2000);
-       else:
-          self.statusBar_showMessage.emit("Поиск завершён",2000);
 
 class PSThread(QtCore.QThread):
    vkps_progressBar_setRange = QtCore.pyqtSignal(int);
