@@ -319,82 +319,98 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
 ######### Функции редактора постов
 #
     def vked_get_post(self):
-        if ('vk.com' in self.vked_postLink.text() and 'wall' in self.vked_postLink.text()) or 'vk.com' not in self.vked_postLink.text():
-           posts = self.vked_postLink.text().split('?')[0].split('wall')[-1]
-           post = self.vk.method('wall.getById', {'posts': posts})[0]
-           post_id = post['id']
-           owner_id = post['owner_id']
-           publish_date = post['date']
-           mark_as_ads = post['marked_as_ads']
-           message = post['text']
-           if 'attachments' in post:
-              attachments = post['attachments']
-           else:
-              attachments = []
-           if 'copyright' in post:
-              copyright = post['copyright']
-           else:
-              copyright = False
-           if 'signer_id' in post:
-              signed = True;
-           else:
-              signed = False;
-           if 'can_open' in post['comments'] and post['comments']['can_open']==1:
-              close_comments = True;
-           else:
-              close_comments = False;
+      if ('vk.com' in self.vked_postLink.text() and 'wall' in self.vked_postLink.text()) or 'vk.com' not in self.vked_postLink.text():
+         posts = self.vked_postLink.text().split('?')[0].split('wall')[-1]
+         retry=True
+         while retry:
+            retry=False
+            try:
+               post = self.vk.method('wall.getById', {'posts': posts})
+            except vk_api.exceptions.ApiHttpError as e:
+               if "Response code 502" in f"{e}":
+                  retry=True
+                  time.sleep(3)
+               else:
+                  raise
+         if post:
+            post = post[0];
+            post_id = post['id']
+            owner_id = post['owner_id']
+            publish_date = post['date']
+            mark_as_ads = post['marked_as_ads']
+            message = post['text']
+            if 'attachments' in post:
+               attachments = post['attachments']
+            else:
+               attachments = []
+            if 'copyright' in post:
+               copyright = post['copyright']
+            else:
+               copyright = False
+            if 'signer_id' in post:
+               signed = True;
+            else:
+               signed = False;
+            if 'can_open' in post['comments'] and post['comments']['can_open']==1:
+               close_comments = True;
+            else:
+               close_comments = False;
+ 
+            name = ''
+            if owner_id>0:
+               name = f"{name}{self.vk.method('users.get', {'user_ids': owner_id})[0]['first_name']}" \
+                       " " \
+                      f"{self.vk.method('users.get', {'user_ids': owner_id})[0]['last_name']}"
+            else:
+               name+=self.vk.method('groups.getById', {'group_id': -owner_id})[0]['name']
+ 
+            self.vked_owner_id.setText(f'{owner_id} {name}')
+            self.vked_message.setText(message)
+ 
+            self.vked_attachments.setRowCount(0)
+            for attachment in attachments:
+               rowPosition = self.vked_attachments.rowCount()
+               self.vked_attachments.insertRow(rowPosition)
+               self.vked_attachments.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem(attachment['type']))
+               if attachment['type']=='link':
+                  self.vked_attachments.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(attachment['link']['url']))
+               else:
+                  self.vked_attachments.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(f"{attachment[attachment['type']]['owner_id']}_{attachment[attachment['type']]['id']}"))
+            self.vked_attachments.resizeColumnsToContents()
+ 
+            if signed:
+               self.vked_signed_2.setChecked(True)
+            else:
+               self.vked_signed_2.setChecked(False)
+ 
+            qdate = QtCore.QDateTime()
+            qdate.setMSecsSinceEpoch(1000*publish_date)
+            self.vked_publish_date.setDateTime(qdate)
+ 
+            self.vked_post_id.setText(f"{post_id}")
+ 
+            if mark_as_ads:
+               self.vked_mark_as_ads.setChecked(True)
+            else:
+               self.vked_mark_as_ads.setChecked(False)
+ 
+            if close_comments:
+               self.vked_close_comments.setChecked(True)
+            else:
+               self.vked_close_comments.setChecked(False)
+ 
+            if copyright:
+               self.vked_copyright.setText(copyright['link'])
+            else:
+               self.vked_copyright.setText('')
 
-           name = ''
-           if owner_id>0:
-              name = f"{name}{self.vk.method('users.get', {'user_ids': owner_id})[0]['first_name']}" \
-                      " " \
-                     f"{self.vk.method('users.get', {'user_ids': owner_id})[0]['last_name']}"
-           else:
-              name+=self.vk.method('groups.getById', {'group_id': -owner_id})[0]['name']
+         else:
+            self.statusBar.showMessage('Пост не найден',2000)
+            print('\a',end='\r')
 
-           self.vked_owner_id.setText(f'{owner_id} {name}')
-           self.vked_message.setText(message)
-
-           self.vked_attachments.setRowCount(0)
-           for attachment in attachments:
-              rowPosition = self.vked_attachments.rowCount()
-              self.vked_attachments.insertRow(rowPosition)
-              self.vked_attachments.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem(attachment['type']))
-              if attachment['type']=='link':
-                 self.vked_attachments.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(attachment['link']['url']))
-              else:
-                 self.vked_attachments.setItem(rowPosition, 1, QtWidgets.QTableWidgetItem(f"{attachment[attachment['type']]['owner_id']}_{attachment[attachment['type']]['id']}"))
-           self.vked_attachments.resizeColumnsToContents()
-
-           if signed:
-              self.vked_signed_2.setChecked(True)
-           else:
-              self.vked_signed_2.setChecked(False)
-
-           qdate = QtCore.QDateTime()
-           qdate.setMSecsSinceEpoch(1000*publish_date)
-           self.vked_publish_date.setDateTime(qdate)
-
-           self.vked_post_id.setText(f"{post_id}")
-
-           if mark_as_ads:
-              self.vked_mark_as_ads.setChecked(True)
-           else:
-              self.vked_mark_as_ads.setChecked(False)
-
-           if close_comments:
-              self.vked_close_comments.setChecked(True)
-           else:
-              self.vked_close_comments.setChecked(False)
-
-           if copyright:
-              self.vked_copyright.setText(copyright['link'])
-           else:
-              self.vked_copyright.setText('')
-
-        else:
-           self.vked_statusBar.showMessage('Неправильная ссылка на пост!',2000)
-           print('\a',end='\r')
+      else:
+         self.statusBar.showMessage('Неправильная ссылка на пост!',2000)
+         print('\a',end='\r')
 
     def vked_addAttachment(self):
        rowPosition = self.vked_attachments.rowCount()
