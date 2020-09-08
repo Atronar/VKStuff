@@ -9,6 +9,7 @@ import time;
 from urllib.request import urlretrieve;
 import json;
 from FileOptimizer import FileOptimizer;
+import re;
 
 import win32clipboard  # http://sourceforge.net/projects/pywin32/
 def copyClipboard(text):
@@ -160,6 +161,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.vkspp_respTableWidget.itemDoubleClicked.connect(self.vkspp_openLink)
         self.vkspp_suggests_radioButton.clicked.connect(self.vkspp_recheck_filter)
         self.vkspp_postponed_radioButton.clicked.connect(self.vkspp_recheck_filter)
+        self.vkspp_htmlGenButton.clicked.connect(self.vkspp_htmlGen)
 
         # Редактор постов
         self.vked_getPostButton.clicked.connect(self.vked_get_post)
@@ -285,6 +287,18 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
           self.vkspp_respTableWidget.setItem(rowPosition, 3, QtWidgets.QTableWidgetItem(post['author']));
        self.vkspp_respTableWidget.resizeColumnsToContents();
 
+       max_value_SpinBox = self.vkspp_respTableWidget.rowCount();
+       if max_value_SpinBox > 0:
+          self.vkspp_fromSpinBox.setMaximum(max_value_SpinBox);
+          self.vkspp_toSpinBox.setMaximum(max_value_SpinBox);
+          self.vkspp_htmlGenButton.setEnabled(True);
+          self.vkspp_fromSpinBox.setEnabled(True);
+          self.vkspp_toSpinBox.setEnabled(True);
+       else:
+          self.vkspp_htmlGenButton.setEnabled(False);
+          self.vkspp_fromSpinBox.setEnabled(False);
+          self.vkspp_toSpinBox.setEnabled(False);
+
     @QtCore.pyqtSlot(str,int)
     def vkspp_signal_statusBar_showMessage(self, message, timeout):
        self.statusBar.showMessage(message,timeout);
@@ -292,10 +306,46 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
     @QtCore.pyqtSlot(bool)
     def vkspp_signal_vkspp_respTableWidget_setEnabled(self, flag):
        self.vkspp_respTableWidget.setEnabled(flag);
+       self.vkspp_htmlGenButton.setEnabled(flag);
+       self.vkspp_fromSpinBox.setEnabled(flag);
+       self.vkspp_toSpinBox.setEnabled(flag);
 
     @QtCore.pyqtSlot(bool)
     def vkspp_signal_vkspp_respGroupBox_setEnabled(self, flag):
        self.vkspp_respGroupBox.setEnabled(flag);
+
+    def vkspp_htmlGen(self):
+       first_post_num = self.vkspp_fromSpinBox.value()
+       last_post_num = self.vkspp_toSpinBox.value()
+       first_post_num, last_post_num = sorted((first_post_num, last_post_num))
+       def posts(first, last):
+          for i in range(first-1, last):
+             post_id = self.vkspp_respTableWidget.item(i,0).text().split('wall',1)[-1];
+             yield post_id;
+       post_id = ','.join(list(posts(first_post_num, last_post_num)))
+       post_list = self.vk.method("wall.getById", {"posts":post_id})
+       with open('posts.html','wt',encoding='utf-8') as html:
+          for post in post_list:
+             post_url = f'wall{post["owner_id"]}_{post["id"]}'
+             html.write(f'<a href="https://vk.com/{post_url}">{time.strftime("%d.%m.%Y %H:%M",time.localtime(post["date"]))}</a><br>\n')
+             url_pattern = r"([^.\s]+\.{1}[^./\s]{2,6}(?:/[^\s]*)*)"
+             text = re.sub(url_pattern,r'<a href=\1>\1</a>',post["text"])
+             text = re.sub(r'(href=(?!http).*?)',r'\1http://',text)
+             text = text.replace("\n","<br>\n");
+             html.write(f'{text}<br>\n')
+             if "attachments" in post:
+                for attachment in post["attachments"]:
+                   if "photo" in attachment:
+                      html.write(f'<a href="https://vk.com/{post_url}?z=photo{attachment["photo"]["owner_id"]}_{attachment["photo"]["id"]}%2F{post_url}"><img src="{attachment["photo"]["sizes"][2]["url"]}"></a>\n')
+                   elif "link" in attachment:
+                      link = attachment['link']['url'];
+                      html.write(f'<a href="{link}">{link}</a>\n');
+                   else:
+                      link = f'https://vk.com/{attachment["type"]}{attachment[attachment["type"]]["owner_id"]}_{attachment[attachment["type"]]["id"]}_{attachment[attachment["type"]]["access_key"]}';
+                      html.write(f'<a href="{link}">{link}</a>\n');
+             html.write(f'<hr>\n\n')
+       self.statusBar.showMessage("Страница сгенерирована ",2000);
+       
   ######
     def vkspp_enableButton(self):
        if self.vkspp_publicLineEdit.text():
