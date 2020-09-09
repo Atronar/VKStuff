@@ -325,6 +325,9 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        post_id = ','.join(list(posts(first_post_num, last_post_num)))
        post_list = self.vk.method("wall.getById", {"posts":post_id})
        with open('posts.html','wt',encoding='utf-8') as html:
+          html.write('<html>\n');
+          html.write('<head><meta charset="utf-8"></head>\n');
+          html.write('<body>\n');
           for post in post_list:
              post_url = f'wall{post["owner_id"]}_{post["id"]}'
              html.write(f'<a href="https://vk.com/{post_url}">{time.strftime("%d.%m.%Y %H:%M",time.localtime(post["date"]))}</a><br>\n')
@@ -349,7 +352,8 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                    else:
                       link = f'https://vk.com/{attachment["type"]}{attachment[attachment["type"]]["owner_id"]}_{attachment[attachment["type"]]["id"]}_{attachment[attachment["type"]]["access_key"]}';
                       html.write(f'<a href="{link}">{link}</a>\n');
-             html.write(f'<hr>\n\n')
+             html.write('<hr>\n\n');
+          html.write('</body>\n</html>');
        self.statusBar.showMessage("Страница сгенерирована ",2000);
        
   ######
