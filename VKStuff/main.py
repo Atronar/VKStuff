@@ -336,7 +336,9 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
              if "attachments" in post:
                 for attachment in post["attachments"]:
                    if "photo" in attachment:
-                      html.write(f'<a href="https://vk.com/{post_url}?z=photo{attachment["photo"]["owner_id"]}_{attachment["photo"]["id"]}%2F{post_url}"><img src="{attachment["photo"]["sizes"][2]["url"]}"></a>\n')
+                      link = f'https://vk.com/{post_url}?z=photo{attachment["photo"]["owner_id"]}_{attachment["photo"]["id"]}%2F{post_url}';
+                      img = attachment["photo"]["sizes"][2]["url"];
+                      html.write(f'<a href="{link}"><img src="{img}"></a>\n');
                    elif "link" in attachment:
                       link = attachment['link']['url'];
                       html.write(f'<a href="{link}">{link}</a>\n');
