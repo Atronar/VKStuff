@@ -346,11 +346,21 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                       link = attachment['doc']['url'];
                       img = link;
                       html.write(f'<a href="{link}"><img src="{img}"></a>\n');
+                   elif "video" in attachment:
+                      link = f'https://vk.com/{post_url}?z=video{attachment["video"]["owner_id"]}_{attachment["video"]["id"]}%2F{post_url}';
+                      img = attachment["video"]["photo_320"];
+                      html.write(f'<a href="{link}"><img src="{img}"></a>\n');
                    elif "link" in attachment:
                       link = attachment['link']['url'];
-                      html.write(f'<a href="{link}">{link}</a>\n');
+                      html.write(f'\n<a href="{link}">{link}</a>\n');
+                   elif "audio" in attachment:
+                      print(attachment["audio"])
+                      link = f'https://vk.com/audio{attachment["audio"]["owner_id"]}_{attachment["audio"]["id"]}';
+                      audio = attachment['audio']['url'];
+                      title = f'{attachment["audio"]["artist"]} — {attachment["audio"]["title"]}';
+                      html.write(f'\n🎵 {title}<audio src="{audio}"></audio>\n');
                    else:
-                      link = f'https://vk.com/{attachment["type"]}{attachment[attachment["type"]]["owner_id"]}_{attachment[attachment["type"]]["id"]}_{attachment[attachment["type"]]["access_key"]}';
+                      link = f'https://vk.com/{attachment["type"]}{attachment[attachment["type"]]["owner_id"]}_{attachment[attachment["type"]]["id"]}%2F{attachment[attachment["type"]]["access_key"]}';
                       html.write(f'<a href="{link}">{link}</a>\n');
              html.write('<hr>\n\n');
           html.write('</body>\n</html>');
