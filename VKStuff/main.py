@@ -340,7 +340,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 for attachment in post["attachments"]:
                    if "photo" in attachment:
                       link = f'https://vk.com/{post_url}?z=photo{attachment["photo"]["owner_id"]}_{attachment["photo"]["id"]}%2F{post_url}';
-                      img = attachment["photo"]["sizes"][2]["url"];
+                      img = attachment["photo"]["sizes"][3]["url"];
                       html.write(f'<a href="{link}"><img src="{img}"></a>\n');
                    elif "doc" in attachment and attachment['doc']['ext']=='gif':
                       link = attachment['doc']['url'];
