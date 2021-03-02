@@ -179,6 +179,10 @@ class Ui_MainWindow(object):
         self.vkspp_attachCheckBox.setChecked(True)
         self.vkspp_attachCheckBox.setObjectName("vkspp_attachCheckBox")
         self.verticalLayout_5.addWidget(self.vkspp_attachCheckBox)
+        self.vkspp_regexpCheckBox = QtWidgets.QCheckBox(self.tab_vksearchpostponed)
+        self.vkspp_regexpCheckBox.setChecked(True)
+        self.vkspp_regexpCheckBox.setObjectName("vkspp_regexpCheckBox")
+        self.verticalLayout_5.addWidget(self.vkspp_regexpCheckBox)
         self.vkspp_postponed_radioButton = QtWidgets.QRadioButton(self.tab_vksearchpostponed)
         self.vkspp_postponed_radioButton.setChecked(True)
         self.vkspp_postponed_radioButton.setObjectName("vkspp_postponed_radioButton")
@@ -359,7 +363,7 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusBar)
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(3)
+        self.tabWidget.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -400,6 +404,7 @@ class Ui_MainWindow(object):
         self.vkspp_plainTextEdit.setPlaceholderText(_translate("MainWindow", "Введите искомый текст"))
         self.vkspp_textdescCheckBox.setText(_translate("MainWindow", "Искать в тексте поста"))
         self.vkspp_attachCheckBox.setText(_translate("MainWindow", "Искать в описаниях вложений"))
+        self.vkspp_regexpCheckBox.setText(_translate("MainWindow", "Использовать синтаксис регулярных выражений"))
         self.vkspp_postponed_radioButton.setText(_translate("MainWindow", "Отложка"))
         self.vkspp_suggests_radioButton.setText(_translate("MainWindow", "Предложка"))
         self.vkspp_pushButton.setText(_translate("MainWindow", "Искать"))

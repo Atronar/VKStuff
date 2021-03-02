@@ -27,11 +27,17 @@ __all__ = ["VKStuffApp","previewWindow"]
 
 MAX_VKSPP_SEARCH_COUNT = 100;
 
-def in_any_attach(searchedText,listAttachs):
-   for attach in listAttachs:
-      type_attach = attach['type'];
-      if 'text' in attach[type_attach] and searchedText in attach[type_attach]['text'].lower():
-         return True;
+def in_any_attach(searchedText,listAttachs,regexp=True):
+   if regexp:
+      for attach in listAttachs:
+         type_attach = attach['type'];
+         if 'text' in attach[type_attach] and re.search(searchedText,attach[type_attach]['text'],re.I):
+            return True;
+   else:
+      for attach in listAttachs:
+         type_attach = attach['type'];
+         if 'text' in attach[type_attach] and searchedText in attach[type_attach]['text'].lower():
+            return True;
    return False;
 
 class SPPThread(QtCore.QThread):
@@ -43,13 +49,14 @@ class SPPThread(QtCore.QThread):
    vkspp_respTableWidget_setEnabled = QtCore.pyqtSignal(bool);
    vkspp_respGroupBox_setEnabled = QtCore.pyqtSignal(bool);
 
-   def __init__(self,app,params,searched,search_desc,search_attach):
+   def __init__(self,app,params,searched,search_desc,search_attach,regexp):
       super().__init__();
       self.app = app;
       self.params = params;
       self.searched = searched;
       self.search_desc = search_desc;
       self.search_attach = search_attach;
+      self.regexp=regexp;
 
    @QtCore.pyqtSlot()
    def run(self):
@@ -66,20 +73,30 @@ class SPPThread(QtCore.QThread):
              self.vkspp_progressBar_setValue.emit(self.params['offset']);
 
              if items:
-                if self.search_desc and self.search_attach:
+                if self.search_desc and self.search_attach and self.regexp:
+                   items = [item for item in items
+                            if re.search(self.searched,item['text'],re.I)
+                               or ('attachments' in item
+                                   and in_any_attach(self.searched,item['attachments'],self.regexp)
+                                  )
+                           ];
+                elif self.search_desc and self.search_attach:
                    items = [item for item in items
                             if self.searched in item['text'].lower()
                                or ('attachments' in item
-                                   and in_any_attach(self.searched,item['attachments'])
+                                   and in_any_attach(self.searched,item['attachments'],self.regexp)
                                   )
                            ];
+                elif self.search_desc and self.regexp:
+                   items = [item for item in items
+                            if re.search(self.searched,item['text'],re.I)];
                 elif self.search_desc:
                    items = [item for item in items
                             if self.searched in item['text'].lower()];
                 elif self.search_attach:
                    items = [item for item in items
                             if 'attachments' in item
-                               and in_any_attach(self.searched,item['attachments'])];
+                               and in_any_attach(self.searched,item['attachments'],self.regexp)];
                 posts_list = [{'link':f"https://vk.com/wall{post['owner_id']}_{post['id']}",
                                'date':time.strftime("%d.%m.%Y %X",time.localtime(post['date'])),
                                'num_attach': f"{len(post['attachments']) if 'attachments' in post else 0}",
@@ -224,6 +241,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        searched = self.vkspp_plainTextEdit.toPlainText().lower().strip()
        search_desc = self.vkspp_textdescCheckBox.isChecked()
        search_attach = self.vkspp_attachCheckBox.isChecked()
+       regexp_flag = self.vkspp_regexpCheckBox.isChecked();
 
        if self.vkspp_suggests_radioButton.isChecked():
           search_filter = 'suggests';
@@ -248,7 +266,7 @@ class VKStuffApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
        self.thread.quit();
        self.thread.wait();
        self.thread = QtCore.QThread(parent=self);
-       self.sppThread = SPPThread(self,params,searched,search_desc,search_attach);
+       self.sppThread = SPPThread(self,params,searched,search_desc,search_attach,regexp_flag);
        self.sppThread.moveToThread(self.thread);
 
        self.sppThread.vkspp_progressBar_setRange.connect(self.vkspp_signal_progressBar_setRange);
